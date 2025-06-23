@@ -1,19 +1,20 @@
 // note set 1 -> multiple questions (generated from files)
+import fs from 'fs/promises'
+import TextExtractor from '../services/textExtractionService.js';
+import MCQGenerator from '../services/mcqGenerationService.js'
+import supabase from '../config/supabase.js'
 
 export async function processDocument(req, res) {
-  let filePath = null;
 
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        error: "No file uploaded",
-      });
-    }
+   if (!req.files || req.files.length === 0) {
+  return res.status(400).json({ error: "No files uploaded" });
+   }
 
-    filePath = req.file.path;
+    
     const {
       noteSetName, // eg. physics chapter 1
-      noteSetDescription = noteSetDescription || " ",
+      noteSetDescription =" ",
       questionCount,
       difficulty = "medium",
       userId,
@@ -23,39 +24,70 @@ export async function processDocument(req, res) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log(`Processing file: ${req.file.originalname}`);
-    console.log(`File type: ${req.file.mimetype}`);
-    console.log(`File size: ${(req.file.size / 1024 / 1024).toFixed(2)} MB`);
+    let combinedData = {
+    text: '',
+    methods: new Set(),
+    pages: 0,
+    };
 
+    // multiple files handling by looping through it 
+  for(const file of req.files){
+    console.log(`Processing file: ${file.originalname}`);
+    console.log(`File type: ${file.mimetype}`);
+    console.log(`File size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    
+    const filePath = file.path;
     // Extract text based on file type
     let extractionResult;
-    // TODO: more conditions for other file types
-    if (req.file.mimetype === "application/pdf") {
-      extractionResult = await TextExtractor.extractFromPDF(filePath);
-    } else if (req.file.mimetype.startsWith("image/")) {
-      extractionResult = await TextExtractor.extractFromImage(filePath);
-    } else {
-      throw new Error("Unsupported file type");
-    }
+
+    if (file.mimetype === "application/pdf") {
+  extractionResult = await TextExtractor.extractFromPDF(filePath);
+
+} else if (file.mimetype.startsWith("image/")) {
+  extractionResult = await TextExtractor.extractFromImage(filePath);
+
+} else if (
+  file.mimetype === "application/vnd.ms-powerpoint" || // .ppt
+  file.mimetype === "application/vnd.openxmlformats-officedocument.presentationml.presentation" // .pptx
+) {
+  extractionResult = await TextExtractor.extractFromPPT(filePath); // implement this
+
+} else if (
+  file.mimetype === "application/msword" || // .doc
+  file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" // .docx
+) {
+  extractionResult = await TextExtractor.extractFromDOC(filePath); // implement this
+
+} else {
+  throw new Error("Unsupported file type");
+}
+
 
     if (!extractionResult.text || extractionResult.text.trim().length < 50) {
       throw new Error("Insufficient text extracted from document");
     }
-
+    combinedData.text += extractionResult.text;
+    combinedData.methods.add(extractionResult.method);
+    combinedData.pages += extractionResult.pages || 0;
     console.log(
       `Text extracted (${extractionResult.text.length} characters)`
     );
     console.log(`Method: ${extractionResult.method}`);
+    // clean up 
+    await fs.unlink(filePath);
+  }
 
+     console.log("Combined Extracted result: ",combinedData.text);
     // Generate MCQs
     console.log("Generating MCQs...");
     const mcqResult = await MCQGenerator.generateMCQs(
-      extractionResult.text,
+      combinedData.text,
       parseInt(questionCount),
       difficulty
     );
 
     console.log(`Generated ${mcqResult.questions.length} MCQs`);
+
     // Create note set in Supabase
     const { data: noteSet, error: noteSetError } = await supabase
       .from("note_sets")
@@ -108,9 +140,9 @@ export async function processDocument(req, res) {
         created_at: noteSet.created_at,
       },
       processing: {
-        method: extractionResult.method,
-        pages: extractionResult.pages,
-        textLength: extractionResult.text.length,
+        method: combinedData.methods,
+        pages: combinedData.pages,
+        textLength: combinedData.text.length,
         questionsGenerated: mcqResult.questions.length,
         questionsRequested: parseInt(questionCount),
       },
@@ -122,15 +154,6 @@ export async function processDocument(req, res) {
       error: error.message,
       details: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
-  } finally {
-    // Clean up uploaded file
-    if (filePath) {
-      try {
-        await fs.unlink(filePath);
-        console.log("Cleaned up uploaded file");
-      } catch (e) {
-        console.warn("Failed to delete uploaded file:", filePath);
-      }
-    }
-  }
+  } 
+
 }

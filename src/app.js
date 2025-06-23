@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
 
-import documentRoutes from "./routes/documentRoutes";
-import healthRoutes from "./routes/healthRoutes";
-import { errorMiddleware } from "./middlewares/errorMiddleware";
+import documentRoutes from "./routes/documentRoutes.js";
+import healthRoutes from "./routes/healthRoutes.js";
+import { errorMiddleware } from "./middlewares/errorMiddleware.js";
 
 const app = express();
 
