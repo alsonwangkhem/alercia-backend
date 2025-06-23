@@ -27,6 +27,8 @@ const upload = multer({
             'image/jpg',
             'image/png',
             'image/webp',
+            'image/heic', // this is for HEIC
+            'image/heif', // this is for HEIF 
             'application/vnd.ms-powerpoint',
             'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             'application/msword', // for .doc

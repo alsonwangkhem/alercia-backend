@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use("/api", documentRoutes);
 app.use("/", healthRoutes);
 
-app.use("*", (req, res) => {
+app.use('/:wildcard(*)', (req, res) => {
   res.status(404).json({ error: "Endpoint not found" });
 });
 

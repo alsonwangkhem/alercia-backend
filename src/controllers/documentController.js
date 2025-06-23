@@ -52,6 +52,9 @@ export async function processDocument(req, res) {
 ) {
   extractionResult = await TextExtractor.extractFromPPT(filePath); // implement this
 
+} else if(req.file.mimetype==="image/heic"||
+              req.file.mimetype==="image/heif"){
+      extractionResult = await TextExtractor.extractFromHEIF(filePath);
 } else if (
   file.mimetype === "application/msword" || // .doc
   file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" // .docx

@@ -119,6 +119,49 @@ class TextExtractor {
         }
     }
 
+    // text extraction function for iphones' HEIC
+    // writing for heif as heif is the container format of heic
+    
+    static async extractFromHEIF(filePath)
+    {
+         try {
+            console.log('Processing HEIC image with OCR...');
+
+            // Convert HEIC to PNG using sharp (sharp supports HEIC if libvips is built with HEIC support)
+            const optimizedPath = filePath.replace(/\.[^/.]+$/, '_optimized.png');
+            await sharp(filePath)
+                .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
+                .greyscale()
+                .normalize()
+                .png()
+                .toFile(optimizedPath);
+
+            const { data: { text } } = await Tesseract.recognize(optimizedPath, 'eng', {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        console.log(`OCR progress: ${Math.round(m.progress * 100)}%`);
+                    }
+                }
+            });
+
+             // clean up optimized image
+            try {
+                await fs.unlink(optimizedPath);
+            } catch (e) {
+                console.warn('Failed to delete optimized image');
+            }
+
+            return {
+                text,
+                method: 'ocr-heic',
+                pages: 1
+            };
+        } catch (error) {
+            console.error('HEIC OCR error: ', error);
+            throw new Error('Failed to extract text from HEIC image');
+        }
+    }
+
    static async extractFromPPT(filePath) {
   try {
     // 1. Attempt direct text extraction
