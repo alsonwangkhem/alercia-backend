@@ -1,9 +1,12 @@
-import openai from "../config/openai"
+import axios from "axios";
+import dotenv from "dotenv";
+dotenv.config();
+
+const COHERE_API_URL = "https://api.cohere.ai/v1/chat";
 
 class MCQGenerator {
   static async generateMCQs(text, questionCount = 10, difficulty = "medium") {
-    try {
-      const prompt = `
+    const prompt = `
 You are an expert educator creating multiple-choice questions. Based on the following text, generate exactly ${questionCount} high-quality MCQ questions.
 
 Requirements:
@@ -17,59 +20,62 @@ Requirements:
 Text to analyze:
 ${text.substring(0, 8000)} ${text.length > 8000 ? "...(truncated)" : ""}
 
-Respond with a JSON object in this exact format:
+Respond in this JSON format:
 {
   "questions": [
     {
-      "question": "Question text here?",
-      "option_a": "First option",
-      "option_b": "Second option", 
-      "option_c": "Third option",
-      "option_d": "Fourth option",
+      "question": "text",
+      "option_a": "A",
+      "option_b": "B",
+      "option_c": "C",
+      "option_d": "D",
       "correct_answer": "A",
-      "explanation": "Brief explanation of why this answer is correct"
+      "explanation": "reason"
     }
   ]
 }
+Generate exactly ${questionCount} questions.
+`;
 
-Generate exactly ${questionCount} questions:`;
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert educator who creates high-quality multiple-choice questions. Always respond with valid JSON format.",
+    try {
+      const response = await axios.post(
+        COHERE_API_URL,
+        {
+          model: "command-r-plus", // or "command-r" if needed
+          message: prompt,
+          temperature: 0.7,
+          max_tokens: 2048,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
+            "Content-Type": "application/json",
           },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 3000,
-      });
+        }
+      );
 
-      const response = completion.choices[0].message.content;
+      const raw = response.data?.text || response.data?.generations?.[0]?.text;
+      if (!raw) throw new Error("Empty or missing response from Cohere");
+      console.log("Raw response from Cohere:\n", raw);
 
-      // Parse and validate JSON response
+      const start = raw.indexOf("{");
+      const end = raw.lastIndexOf("}");
+      if (start === -1 || end === -1) {
+      throw new Error("JSON block not found in model output");
+      }
+
+      const jsonString = raw.slice(start, end + 1);
+
       let mcqData;
       try {
-        mcqData = JSON.parse(response);
-      } catch (parseError) {
-        console.error("JSON parse error:", parseError);
-        throw new Error("Invalid response format from AI");
+        mcqData = JSON.parse(jsonString);
+      } catch (err) {
+        console.error("JSON parse error:", err);
+        throw new Error("Invalid JSON format from Cohere model");
       }
 
-      // Validate structure
-      if (!mcqData.questions || !Array.isArray(mcqData.questions)) {
-        throw new Error("Invalid MCQ data structure");
-      }
-
-      // Validate each question
-      const validQuestions = mcqData.questions.filter((q) => {
-        return (
+      const validQuestions = mcqData.questions?.filter(
+        (q) =>
           q.question &&
           q.option_a &&
           q.option_b &&
@@ -78,10 +84,9 @@ Generate exactly ${questionCount} questions:`;
           q.correct_answer &&
           ["A", "B", "C", "D"].includes(q.correct_answer) &&
           q.explanation
-        );
-      });
+      );
 
-      if (validQuestions.length === 0) {
+      if (!validQuestions?.length) {
         throw new Error("No valid questions generated");
       }
 
@@ -91,7 +96,7 @@ Generate exactly ${questionCount} questions:`;
         requested_count: questionCount,
       };
     } catch (error) {
-      console.error("MCQ generation error:", error);
+      console.error("MCQ generation error (Cohere):", error);
       throw new Error(`Failed to generate MCQs: ${error.message}`);
     }
   }

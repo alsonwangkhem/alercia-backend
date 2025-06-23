@@ -28,7 +28,10 @@ const upload = multer({
             'image/png',
             'image/webp',
             'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/msword', // for .doc
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // for .docx
+
         ];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
