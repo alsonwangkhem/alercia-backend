@@ -5,6 +5,5 @@ import { processDocument } from "../controllers/documentController.js";
 const documentRoutes = express.Router();
 
 // TODO: .fields or .array 
-documentRoutes.post('/process-document', upload.single('file'), processDocument);
-
+documentRoutes.post('/process-document', upload.array('file', 5), processDocument);
 export default documentRoutes;

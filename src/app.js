@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 
-import documentRoutes from "./routes/documentRoutes.js";//add .js for type module
+import documentRoutes from "./routes/documentRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import { errorMiddleware } from "./middlewares/errorMiddleware.js";
 
