@@ -1,4 +1,8 @@
 // note set 1 -> multiple questions (generated from files)
+import fs from 'fs/promises'
+import TextExtractor from '../services/textExtractionService.js';
+import MCQGenerator from '../services/mcqGenerationService.js'
+import supabase from '../config/supabase.js'
 
 export async function processDocument(req, res) {
   let filePath = null;
@@ -13,7 +17,7 @@ export async function processDocument(req, res) {
     filePath = req.file.path;
     const {
       noteSetName, // eg. physics chapter 1
-      noteSetDescription = noteSetDescription || " ",
+      noteSetDescription ,//= noteSetDescription || " ",
       questionCount,
       difficulty = "medium",
       userId,
@@ -34,7 +38,10 @@ export async function processDocument(req, res) {
       extractionResult = await TextExtractor.extractFromPDF(filePath);
     } else if (req.file.mimetype.startsWith("image/")) {
       extractionResult = await TextExtractor.extractFromImage(filePath);
-    } else {
+    } else if(req.file.mimetype==="image/heic"||
+              req.file.mimetype==="image/heif"){
+      extractionResult = await TextExtractor.extractFromHEIF(filePath);
+    }else{
       throw new Error("Unsupported file type");
     }
 
@@ -46,6 +53,10 @@ export async function processDocument(req, res) {
       `Text extracted (${extractionResult.text.length} characters)`
     );
     console.log(`Method: ${extractionResult.method}`);
+
+
+    console.log("\nextracted file : ",extractionResult.text); //comment made by nelson and ronaldo
+
 
     // Generate MCQs
     console.log("Generating MCQs...");

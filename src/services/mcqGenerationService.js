@@ -1,4 +1,4 @@
-import openai from "../config/openai"
+import openai from "../config/openai.js"
 
 class MCQGenerator {
   static async generateMCQs(text, questionCount = 10, difficulty = "medium") {
